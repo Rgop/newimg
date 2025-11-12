@@ -12,6 +12,10 @@ from database.database import (
     save_channel_photo,
     save_encoded_link,
     save_encoded_link2,
+    ban_user,
+    unban_user,
+    is_user_banned,
+    get_all_banned_users,
 )
 from config import ADMINS, OWNER_ID
 from helper_func import encode
@@ -159,3 +163,54 @@ async def req_post(client: Bot, message: Message):
         await message.reply("📢 Select a channel to request access:", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
         await message.reply("No channels available.")
+
+##----------------------------------------------------------------------------------------------------        
+##----------------------------------------------------------------------------------------------------
+
+@Bot.on_message(filters.command('ban') & filters.private & filters.user([OWNER_ID, *ADMINS]))
+async def ban_user_cmd(client: Bot, message: Message):
+    try:
+        user_id = int(message.command[1])
+    except (IndexError, ValueError):
+        return await message.reply("User id dedo bhai. Example: /ban <user_id>")
+    
+    try:
+        await ban_user(user_id)
+        return await message.reply(f"✅ User {user_id} ko ban kar dia gaya ha maharaj.")
+    except Exception as e:
+        return await message.reply(f"❌ Error: {str(e)}")
+
+##----------------------------------------------------------------------------------------------------        
+##----------------------------------------------------------------------------------------------------
+
+@Bot.on_message(filters.command('unban') & filters.private & filters.user([OWNER_ID, *ADMINS]))
+async def unban_user_cmd(client: Bot, message: Message):
+    try:
+        user_id = int(message.command[1])
+    except (IndexError, ValueError):
+        return await message.reply("User id dedo bhai. Example: /unban <user_id>")
+    
+    try:
+        await unban_user(user_id)
+        return await message.reply(f"✅ User {user_id} ko unban kar dia gaya ha maharaj.")
+    except Exception as e:
+        return await message.reply(f"❌ Error: {str(e)}")
+
+##----------------------------------------------------------------------------------------------------        
+##----------------------------------------------------------------------------------------------------
+
+@Bot.on_message(filters.command('bannedusers') & filters.private & filters.user([OWNER_ID, *ADMINS]))
+async def list_banned_users(client: Bot, message: Message):
+    try:
+        banned_users = await get_all_banned_users()
+        if not banned_users:
+            return await message.reply("Koi user banned nahi ha maharaj.")
+        
+        response = "<b>Banned Users:</b>\n"
+        for idx, user_id in enumerate(banned_users, 1):
+            response += f"{idx}. <code>{user_id}</code>\n"
+        
+        return await message.reply(response, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        return await message.reply(f"❌ Error: {str(e)}")
+        
