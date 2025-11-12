@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from config import ADMINS, OWNER_ID
 from helper_func import encode, decode
 from database.database import save_encoded_link, get_channel_by_encoded_link, save_encoded_link2, get_channel_by_encoded_link2
-from database.database import add_user, del_user, full_userbase, present_user, is_admin, get_channel_photo_link
+from database.database import add_user, del_user, full_userbase, present_user, is_admin, get_channel_photo_link, is_user_banned
         
 #=====================================================================================##
 
@@ -41,11 +41,8 @@ async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
 
     # Check if the user is banned
-    if user_id in user_banned_until:
-        # Check if the ban duration has not expired
-        if datetime.now() < user_banned_until[user_id]:
-            # User is still banned, do not process the command
-            return await message.reply_text("🚫 You are temporarily banned from using commands due to spamming. Try again later.")
+    if await is_user_banned(user_id):
+        return  # Silently ignore banned users, no response
 
     # Proceed with the original functionality if the user is not banned
     text = message.text
@@ -84,7 +81,7 @@ async def start_command(client: Client, message: Message):
                 creates_join_request=is_request
             )
 
-            button_text = "📌 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐍𝐨𝐰 " if is_request else "📌 𝐃𝐨𝐰𝐧𝐥𝐨𝐚𝐝 𝐍𝐨𝐰"
+            button_text = "🛎️ Request to Join" if is_request else "🔗 Join Channel"
             button = InlineKeyboardMarkup([[InlineKeyboardButton(button_text, url=invite.invite_link)]])
 
             # If a photo_link is available, send a photo with a MarkdownV2 caption; else fallback to text
@@ -109,7 +106,7 @@ async def start_command(client: Client, message: Message):
                     )
                 except Exception as e:
                     print(f"[start] send_photo markdown failed: {e}")
-                    fallback_caption = f"Title'- \n {channel_handle} \n • Audio: Hindi \n • Quality: 480p+720p+1080p \n \n This link will expire in Few Min."
+                    fallback_caption = f"Title'- {channel_handle} This link will expire in {expire_seconds} seconds."
                     await message.reply_photo(
                         photo=photo_link,
                         caption=fallback_caption,
@@ -135,7 +132,7 @@ async def start_command(client: Client, message: Message):
             except Exception: pass
         inline_buttons = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("Channel", callback_data="help"),
+                [InlineKeyboardButton("About Me", callback_data="help"),
                  InlineKeyboardButton("Close", callback_data="close")]
             ]
         )
@@ -224,7 +221,7 @@ async def help_callback(client: Client, callback_query):
     
     
     await callback_query.answer()
-    await callback_query.message.edit_text("<b><i> ios !!</i></b>", reply_markup=inline_buttons)
+    await callback_query.message.edit_text("<b><i>About Us..\n\n‣ Made for : @Anime_X_Hunters\n‣ Owned by : @Okabe_xRintarou\n‣ Developer : @The_Seishiro_Nagi\n\n Adios !!</i></b>", reply_markup=inline_buttons)
 
 @Client.on_callback_query(filters.regex("close"))
 async def close_callback(client: Client, callback_query):
@@ -272,3 +269,4 @@ async def revoke_invite_after_10_minutes(client: Client, channel_id: int, invite
         await client.revoke_chat_invite_link(chat_id=channel_id, invite_link=invite_link)
     except Exception as e:
         print(f"Error revoking invite link: {e}")
+
