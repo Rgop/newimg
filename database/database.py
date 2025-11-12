@@ -9,6 +9,7 @@ database = dbclient[DB_NAME]
 user_data = database['users']
 channels_collection = database["channels"]
 encoded_links_collection = database["links"]
+banned_users_collection = database["banned_users"]
 
 async def add_user(user_id: int):
     existing_user = await user_data.find_one({'_id': user_id})
@@ -100,3 +101,23 @@ async def get_channel_photo_link(channel_id: int):
     if not channel:
         return None
     return channel.get("photo_link")
+
+##-------------------------------------------------------------------
+
+async def ban_user(user_id: int):
+    """Ban a user from using the bot."""
+    await banned_users_collection.insert_one({"_id": user_id, "banned_at": datetime.now()})
+
+async def unban_user(user_id: int):
+    """Unban a user."""
+    await banned_users_collection.delete_one({"_id": user_id})
+
+async def is_user_banned(user_id: int):
+    """Check if a user is banned."""
+    return bool(await banned_users_collection.find_one({"_id": user_id}))
+
+async def get_all_banned_users():
+    """Get list of all banned users."""
+    banned = await banned_users_collection.find().to_list(None)
+    return [doc["_id"] for doc in banned]
+    
