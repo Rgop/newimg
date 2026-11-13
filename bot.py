@@ -7,6 +7,7 @@ from config import API_HASH, APP_ID, LOGGER, TG_BOT_TOKEN, TG_BOT_WORKERS, PORT
 from plugins import web_server
 import pyrogram.utils
 from aiohttp import web
+from database.database import get_fsub_channels
 pyrogram.utils.MIN_CHANNEL_ID = -1009147483647
 
 name = """
@@ -34,6 +35,11 @@ class Bot(Client):
         self.LOGGER(__name__).info("Bot Running..!\n\nCreated by \nhttps://t.me/Okabe_xRintarou")
         self.LOGGER(__name__).info(f"{name}")
         self.username = usr_bot_me.username
+        stored_fsub = await get_fsub_channels()
+        self.fsub_dict = {int(channel_id): data for channel_id, data in stored_fsub.items()}
+        self.fsub_enabled = True
+        self.fsub_message = None
+        self.fsub_photo = ""
 
         # Web-response
         app = web.AppRunner(await web_server())
