@@ -14,6 +14,7 @@ from config import ADMINS, OWNER_ID
 from helper_func import encode, decode
 from database.database import save_encoded_link, get_channel_by_encoded_link, save_encoded_link2, get_channel_by_encoded_link2
 from database.database import add_user, del_user, full_userbase, present_user, is_admin, get_channel_photo_link, is_user_banned
+from plugins.force_sub import force_sub
         
 #=====================================================================================##
 
@@ -37,6 +38,7 @@ def _escape_md_v2_url(url: str) -> str:
     return url.replace("\\", "\\\\").replace("(", "\$$").replace(")", "\$$")
 
 @Client.on_message(filters.command('start') & filters.private)
+@force_sub
 async def start_command(client: Client, message: Message):
     user_id = message.from_user.id
 
@@ -130,12 +132,12 @@ async def start_command(client: Client, message: Message):
         if placeholder:
             try: await placeholder.delete()
             except Exception: pass
-        inline_buttons = InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("About Me", callback_data="help"),
-                 InlineKeyboardButton("Close", callback_data="close")]
-            ]
-        )
+        buttons = [InlineKeyboardButton("About Me", callback_data="help"),
+                   InlineKeyboardButton("Close", callback_data="close")]
+        rows = [buttons]
+        if user_id == OWNER_ID or user_id in ADMINS:
+            rows.insert(0, [InlineKeyboardButton("Settings", callback_data="settings")])
+        inline_buttons = InlineKeyboardMarkup(rows)
         
         await message.reply_text(
             "<b><i>Welcome to the advanced links sharing bot.\nWith this bot, you can share links and keep your channels safe from copyright issues</i></b>",
