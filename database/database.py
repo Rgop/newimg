@@ -121,3 +121,74 @@ async def get_all_banned_users():
     banned = await banned_users_collection.find().to_list(None)
     return [doc["_id"] for doc in banned]
     
+
+# Force Subscribe persistence. These collections are additive and preserve the
+# existing users/channels/links architecture.
+fsub_config_collection = database['fsub_config']
+fsub_status_collection = database['fsub_status']
+join_requests_collection = database['join_requests']
+
+async def set_fsub_channels(channels: dict):
+    await fsub_config_collection.update_one(
+        {'_id': 'channels'}, {'$set': {'channels': channels}}, upsert=True
+    )
+
+async def get_fsub_channels() -> dict:
+    doc = await fsub_config_collection.find_one({'_id': 'channels'})
+    return (doc or {}).get('channels', {})
+
+async def add_fsub_channel(channel_id: int, data):
+    channels = await get_fsub_channels()
+    channels[str(channel_id)] = data
+    await set_fsub_channels(channels)
+
+async def remove_fsub_channel(channel_id: int):
+    channels = await get_fsub_channels()
+    channels.pop(str(channel_id), None)
+    await set_fsub_channels(channels)
+
+async def update_fsub_status(user_id: int, channel_id: int, status: str):
+    await fsub_status_collection.update_one(
+        {'user_id': user_id, 'channel_id': channel_id},
+        {'$set': {'status': status, 'last_updated': datetime.now()}}, upsert=True
+    )
+
+async def get_fsub_status(user_id: int, channel_id: int):
+    doc = await fsub_status_collection.find_one({'user_id': user_id, 'channel_id': channel_id})
+    return doc.get('status') if doc else None
+
+async def add_channel_user(channel_id: int, user_id: int):
+    await channels_collection.update_one(
+        {'channel_id': channel_id}, {'$addToSet': {'users': user_id}}, upsert=True
+    )
+
+async def remove_channel_user(channel_id: int, user_id: int):
+    await channels_collection.update_one(
+        {'channel_id': channel_id}, {'$pull': {'users': user_id}}
+    )
+
+async def add_join_request(user_id: int, channel_id: int, request_id=None):
+    await join_requests_collection.update_one(
+        {'user_id': user_id, 'channel_id': channel_id},
+        {'$set': {'request_id': request_id, 'status': 'pending',
+                  'submitted_at': datetime.now(), 'last_updated': datetime.now()}},
+        upsert=True
+    )
+
+async def update_join_request_status(user_id: int, channel_id: int, status: str):
+    await join_requests_collection.update_one(
+        {'user_id': user_id, 'channel_id': channel_id},
+        {'$set': {'status': status, 'last_updated': datetime.now()}}
+    )
+
+async def get_join_request_status(user_id: int, channel_id: int):
+    doc = await join_requests_collection.find_one({'user_id': user_id, 'channel_id': channel_id})
+    return doc.get('status') if doc else None
+
+async def has_submitted_join_request(user_id: int, channel_id: int) -> bool:
+    return await join_requests_collection.find_one(
+        {'user_id': user_id, 'channel_id': channel_id}
+    ) is not None
+
+async def remove_join_request(user_id: int, channel_id: int):
+    await join_requests_collection.delete_one({'user_id': user_id, 'channel_id': channel_id})
